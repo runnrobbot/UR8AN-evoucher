@@ -1,8 +1,9 @@
 import { useMemo, useState, useCallback } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   ClipboardList, Search, Ticket, Download, FileText,
   FileSpreadsheet, Calendar, TrendingUp, CheckCircle,
+  ChevronDown, User, Phone, Tag, Clock, Percent,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useRedemptions } from "../hooks/useRedemptions";
@@ -11,6 +12,7 @@ import Spinner from "../components/ui/Spinner";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function toDate(ts) {
   if (!ts) return null;
   return ts.toDate ? ts.toDate() : new Date(ts);
@@ -23,13 +25,20 @@ function formatDate(ts, withTime = true) {
     ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
   });
 }
+function formatDateLong(ts) {
+  const d = toDate(ts);
+  if (!d) return "-";
+  return d.toLocaleDateString("id-ID", {
+    weekday: "long", day: "2-digit", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+}
 function formatDiscount(r) {
   if (!r.discount) return "-";
   return r.discountType === "percent"
     ? `${r.discount}%`
     : `Rp${Number(r.discount).toLocaleString("id-ID")}`;
 }
-
 function escapeCSV(val) {
   const str = String(val ?? "");
   if (str.includes(",") || str.includes('"') || str.includes("\n"))
@@ -82,22 +91,82 @@ function buildFilename(df, dt) {
   return df && dt ? `laporan_voucher_${df}_sd_${dt}` : `laporan_voucher_${now}`;
 }
 
+// ── Detail panel untuk satu redemption ────────────────────────────────────────
+function DetailPanel({ r }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      className="overflow-hidden"
+    >
+      <div className="px-6 py-4 bg-[#F7F8F6] border-t border-[#DDE2DD]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Voucher info */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Info Voucher</p>
+            <DetailRow icon={<Ticket size={13} />}   label="Judul"    value={r.voucherTitle || "-"} />
+            <DetailRow icon={<Tag size={13} />}      label="Kode"
+              value={<code className="font-mono font-bold text-[#6B8F71]">{r.voucherCode}</code>}
+            />
+            <DetailRow icon={<Percent size={13} />}  label="Nilai Diskon"
+              value={<Badge variant="green">{formatDiscount(r)}</Badge>}
+            />
+          </div>
+
+          {/* Customer info */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Info Customer</p>
+            <DetailRow icon={<User size={13} />}     label="Nama"    value={r.customerName  || "-"} />
+            <DetailRow icon={<Phone size={13} />}    label="No. HP"  value={r.customerPhone || "-"} />
+          </div>
+
+          {/* Transaksi info */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Detail Transaksi</p>
+            <DetailRow icon={<User size={13} />}     label="Staff Peredeem" value={r.staffName || "-"} />
+            <DetailRow icon={<Clock size={13} />}    label="Waktu Tepat"    value={formatDateLong(r.redeemedAt)} />
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function DetailRow({ icon, label, value }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-slate-400 mt-0.5 shrink-0">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-400">{label}</p>
+        <div className="text-sm text-[#2D3A3A] font-medium">{value}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 export default function RedemptionsPage() {
   const { user } = useAuth();
   const { redemptions, loading } = useRedemptions(user?.uid);
 
-  const [search, setSearch]   = useState("");
+  const [search, setSearch]     = useState("");
   const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo]   = useState("");
+  const [dateTo, setDateTo]     = useState("");
   const [exportMenu, setExportMenu] = useState(false);
+  const [expandedId, setExpandedId] = useState(null); // row yang di-expand
 
   const filtered = useMemo(() => {
     return redemptions.filter((r) => {
       if (search) {
         const s = search.toLowerCase();
-        if (!(r.voucherTitle?.toLowerCase().includes(s) || r.voucherCode?.toLowerCase().includes(s) ||
-              r.customerName?.toLowerCase().includes(s) || r.staffName?.toLowerCase().includes(s)))
-          return false;
+        if (!(
+          r.voucherTitle?.toLowerCase().includes(s) ||
+          r.voucherCode?.toLowerCase().includes(s)  ||
+          r.customerName?.toLowerCase().includes(s) ||
+          r.staffName?.toLowerCase().includes(s)
+        )) return false;
       }
       const d = toDate(r.redeemedAt);
       if (dateFrom && d && d < new Date(dateFrom + "T00:00:00")) return false;
@@ -107,14 +176,17 @@ export default function RedemptionsPage() {
   }, [redemptions, search, dateFrom, dateTo]);
 
   const summary = useMemo(() => ({
-    count: filtered.length,
-    totalFixed: filtered.filter((r) => r.discountType === "fixed").reduce((s, r) => s + Number(r.discount||0), 0),
+    count:      filtered.length,
+    totalFixed: filtered.filter((r) => r.discountType === "fixed")
+                        .reduce((s, r) => s + Number(r.discount || 0), 0),
   }), [filtered]);
 
   const doExportCSV  = useCallback(() => { exportCSV(filtered,  buildFilename(dateFrom, dateTo)); setExportMenu(false); }, [filtered, dateFrom, dateTo]);
   const doExportXLSX = useCallback(() => { exportXLSX(filtered, buildFilename(dateFrom, dateTo)); setExportMenu(false); }, [filtered, dateFrom, dateTo]);
   const hasFilters   = search || dateFrom || dateTo;
   const clearFilters = () => { setSearch(""); setDateFrom(""); setDateTo(""); };
+
+  const toggleExpand = (id) => setExpandedId((p) => p === id ? null : id);
 
   return (
     <div className="space-y-6">
@@ -128,30 +200,25 @@ export default function RedemptionsPage() {
           <p className="text-slate-500 text-sm mt-1">{redemptions.length} voucher telah digunakan</p>
         </div>
         <div className="relative">
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button variant="secondary" onClick={() => setExportMenu((p) => !p)} disabled={filtered.length === 0}>
-              <Download size={15} />
-              Export Laporan
-            </Button>
-          </motion.div>
+          <Button variant="secondary" onClick={() => setExportMenu((p) => !p)} disabled={filtered.length === 0}>
+            <Download size={15} />Export Laporan
+          </Button>
           {exportMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setExportMenu(false)} />
               <motion.div
                 initial={{ opacity: 0, scale: 0.93, y: -8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.93, y: -8 }}
-                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute right-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-20"
+                className="absolute right-0 mt-2 w-52 bg-white border border-[#DDE2DD] rounded-2xl shadow-xl py-2 z-20"
               >
                 <p className="px-4 py-1.5 text-xs text-slate-400 font-medium uppercase tracking-wide">
-                  {filtered.length} data akan diekspor
+                  {filtered.length} data
                 </p>
-                <button onClick={doExportCSV} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+                <button onClick={doExportCSV} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#2D3A3A] hover:bg-[#F7F8F6]">
                   <FileText size={16} className="text-[#6B8F71]" /> Export CSV
                 </button>
-                <button onClick={doExportXLSX} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
-                  <FileSpreadsheet size={16} className="text-[#506A56]" /> Export Excel (.xls)
+                <button onClick={doExportXLSX} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#2D3A3A] hover:bg-[#F7F8F6]">
+                  <FileSpreadsheet size={16} className="text-[#506A56]" /> Export Excel
                 </button>
               </motion.div>
             </>
@@ -159,22 +226,22 @@ export default function RedemptionsPage() {
         </div>
       </motion.div>
 
-      {/* Summary cards */}
+      {/* Summary */}
       {!loading && redemptions.length > 0 && (
         <motion.div variants={staggerContainer} initial="hidden" animate="visible"
           className="grid grid-cols-2 sm:grid-cols-3 gap-4"
         >
           {[
-            { icon: CheckCircle, label: "Total Diredeem", value: summary.count,      accent: "bg-[#6B8F71]" },
+            { icon: CheckCircle, label: "Total Diredeem",       value: summary.count,  accent: "bg-[#6B8F71]" },
             { icon: TrendingUp,  label: "Total Diskon Nominal",
               value: summary.totalFixed > 0 ? `Rp${summary.totalFixed.toLocaleString("id-ID")}` : "-",
               accent: "bg-slate-700", small: true },
-            { icon: Calendar, label: "Terakhir Diredeem",
+            { icon: Calendar,    label: "Terakhir Diredeem",
               value: redemptions[0] ? formatDate(redemptions[0].redeemedAt, false) : "-",
               accent: "bg-slate-500", small: true },
           ].map((s) => (
             <motion.div key={s.label} variants={statCard}
-              className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-3 hover:shadow-sm transition-shadow"
+              className="bg-white rounded-2xl border border-[#DDE2DD] p-4 flex items-center gap-3 hover:shadow-sm transition-shadow"
             >
               <div className={`w-10 h-10 ${s.accent} rounded-xl flex items-center justify-center shrink-0`}>
                 <s.icon size={18} className="text-white" />
@@ -189,126 +256,168 @@ export default function RedemptionsPage() {
       )}
 
       {/* Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.12, duration: 0.3 }}
         className="flex flex-col sm:flex-row gap-3"
       >
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text" placeholder="Cari voucher, kode, customer, atau staff..."
+          <input type="text" placeholder="Cari voucher, kode, customer, atau staff..."
             value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-400"
+            className="w-full rounded-xl border border-[#DDE2DD] pl-9 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#6B8F71]/40"
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Calendar size={15} className="text-slate-400 shrink-0" />
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-400 bg-white" title="Dari tanggal" />
+            className="rounded-xl border border-[#DDE2DD] px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#6B8F71]/40 bg-white" />
           <span className="text-slate-400 text-sm">–</span>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-400 bg-white" title="Sampai tanggal" />
+            className="rounded-xl border border-[#DDE2DD] px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#6B8F71]/40 bg-white" />
           {hasFilters && (
-            <button onClick={clearFilters} className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-              Reset
-            </button>
+            <button onClick={clearFilters} className="text-sm text-slate-400 hover:text-slate-600">Reset</button>
           )}
         </div>
       </motion.div>
 
       {hasFilters && !loading && (
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500">
           Menampilkan <span className="font-semibold text-[#2D3A3A]">{filtered.length}</span> dari {redemptions.length} data
-        </motion.p>
+        </p>
       )}
 
       {/* Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.18, duration: 0.35 }}
-        className="bg-white rounded-2xl border border-slate-100 overflow-hidden"
+        className="bg-white rounded-2xl border border-[#DDE2DD] overflow-hidden"
       >
         {loading ? (
           <div className="flex justify-center py-20"><Spinner size="lg" /></div>
         ) : filtered.length === 0 ? (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-20 text-slate-400">
+          <div className="text-center py-20 text-slate-400">
             <ClipboardList size={40} className="mx-auto mb-3 opacity-30" />
             <p className="font-medium">{hasFilters ? "Tidak ada data sesuai filter" : "Belum ada riwayat penggunaan"}</p>
             {hasFilters && <button onClick={clearFilters} className="text-sm text-[#6B8F71] hover:underline mt-2">Reset filter</button>}
-          </motion.div>
+          </div>
         ) : (
           <>
             {/* Desktop */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide border-b border-slate-100">
+                <thead className="bg-[#F7F8F6] text-xs text-slate-500 uppercase tracking-wide border-b border-[#DDE2DD]">
                   <tr>
-                    <th className="px-6 py-3 text-left w-8">#</th>
-                    <th className="px-6 py-3 text-left">Voucher</th>
-                    <th className="px-6 py-3 text-left">Kode</th>
-                    <th className="px-6 py-3 text-left">Customer</th>
-                    <th className="px-6 py-3 text-left">Nilai</th>
-                    <th className="px-6 py-3 text-left">Staff</th>
-                    <th className="px-6 py-3 text-left">Tanggal</th>
+                    <th className="px-4 py-3 text-left w-8">#</th>
+                    <th className="px-4 py-3 text-left">Voucher</th>
+                    <th className="px-4 py-3 text-left">Kode</th>
+                    <th className="px-4 py-3 text-left">Customer</th>
+                    <th className="px-4 py-3 text-left">Nilai</th>
+                    <th className="px-4 py-3 text-left">Staff</th>
+                    <th className="px-4 py-3 text-left">Tanggal</th>
+                    <th className="px-4 py-3 text-left w-8"></th>
                   </tr>
                 </thead>
-                <motion.tbody variants={staggerContainer} initial="hidden" animate="visible" className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-[#F7F8F6]">
                   {filtered.map((r, i) => (
-                    <motion.tr key={r.id} variants={tableRow} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="px-6 py-4 text-xs text-slate-400">{i + 1}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center shrink-0">
-                            <Ticket size={14} className="text-slate-500" />
+                    <>
+                      <tr
+                        key={r.id}
+                        className="hover:bg-[#F7F8F6]/60 transition-colors cursor-pointer"
+                        onClick={() => toggleExpand(r.id)}
+                      >
+                        <td className="px-4 py-3 text-xs text-slate-400">{i + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 bg-[#F7F8F6] rounded-lg flex items-center justify-center shrink-0">
+                              <Ticket size={13} className="text-slate-500" />
+                            </div>
+                            <span className="text-sm font-medium text-[#2D3A3A] truncate max-w-[160px]">
+                              {r.voucherTitle}
+                            </span>
                           </div>
-                          <span className="text-sm font-medium text-[#2D3A3A]">{r.voucherTitle}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <code className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-700">{r.voucherCode}</code>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-slate-700">{r.customerName || "-"}</p>
-                        {r.customerPhone && <p className="text-xs text-slate-400">{r.customerPhone}</p>}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge variant="green">{formatDiscount(r)}</Badge>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">{r.staffName || "-"}</td>
-                      <td className="px-6 py-4 text-xs text-slate-400">{formatDate(r.redeemedAt)}</td>
-                    </motion.tr>
+                        </td>
+                        <td className="px-4 py-3">
+                          <code className="text-xs font-mono bg-[#F7F8F6] px-2 py-1 rounded text-slate-700">
+                            {r.voucherCode}
+                          </code>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-[#2D3A3A]">{r.customerName || "-"}</p>
+                          {r.customerPhone && (
+                            <p className="text-xs text-slate-400">{r.customerPhone}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="green">{formatDiscount(r)}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-500">{r.staffName || "-"}</td>
+                        <td className="px-4 py-3 text-xs text-slate-400">{formatDate(r.redeemedAt)}</td>
+                        <td className="px-4 py-3">
+                          <motion.div
+                            animate={{ rotate: expandedId === r.id ? 180 : 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <ChevronDown size={15} className="text-slate-400" />
+                          </motion.div>
+                        </td>
+                      </tr>
+
+                      {/* Detail panel */}
+                      <tr key={`${r.id}-detail`}>
+                        <td colSpan={8} className="p-0">
+                          <AnimatePresence>
+                            {expandedId === r.id && <DetailPanel r={r} />}
+                          </AnimatePresence>
+                        </td>
+                      </tr>
+                    </>
                   ))}
-                </motion.tbody>
+                </tbody>
               </table>
             </div>
 
-            {/* Mobile */}
-            <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="md:hidden divide-y divide-slate-50">
+            {/* Mobile — card dengan expand */}
+            <div className="md:hidden divide-y divide-[#F7F8F6]">
               {filtered.map((r) => (
-                <motion.div key={r.id} variants={staggerItem} className="px-4 py-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center shrink-0">
-                      <Ticket size={16} className="text-slate-500" />
+                <div key={r.id}>
+                  <button
+                    className="w-full px-4 py-4 flex items-center justify-between gap-3 hover:bg-[#F7F8F6]/50 transition-colors text-left"
+                    onClick={() => toggleExpand(r.id)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 bg-[#F7F8F6] rounded-xl flex items-center justify-center shrink-0">
+                        <Ticket size={16} className="text-slate-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[#2D3A3A] truncate">{r.voucherTitle}</p>
+                        <p className="text-xs text-slate-500 truncate">{r.customerName || "-"}</p>
+                        <code className="text-xs text-slate-500 font-mono">{r.voucherCode}</code>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-[#2D3A3A] truncate">{r.voucherTitle}</p>
-                      <p className="text-xs text-slate-500 truncate">{r.customerName || "-"}</p>
-                      <code className="text-xs text-slate-600 font-mono">{r.voucherCode}</code>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        <Badge variant="green">{formatDiscount(r)}</Badge>
+                        <p className="text-xs text-slate-400 mt-1">{formatDate(r.redeemedAt, false)}</p>
+                      </div>
+                      <motion.div
+                        animate={{ rotate: expandedId === r.id ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronDown size={15} className="text-slate-400" />
+                      </motion.div>
                     </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <Badge variant="green">{formatDiscount(r)}</Badge>
-                    <p className="text-xs text-slate-400 mt-1">{formatDate(r.redeemedAt, false)}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
+                  </button>
 
-            <div className="px-6 py-3 border-t border-slate-50 bg-slate-50/50">
-              <p className="text-xs text-slate-400">{filtered.length} data{hasFilters ? " (filter aktif)" : ""}</p>
+                  <AnimatePresence>
+                    {expandedId === r.id && <DetailPanel r={r} />}
+                  </AnimatePresence>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 py-3 border-t border-[#DDE2DD] bg-[#F7F8F6]/50">
+              <p className="text-xs text-slate-400">
+                {filtered.length} data{hasFilters ? " (filter aktif)" : ""} · Klik baris untuk detail
+              </p>
             </div>
           </>
         )}

@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { motion } from "motion/react";
-import { Plus, Search, Ticket, Pencil, Trash2, QrCode, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Ticket, Pencil, Trash2, QrCode, CheckCircle2, Layers } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useVouchers, deleteVoucher } from "../hooks/useVouchers";
 import VoucherForm from "../components/voucher/VoucherForm";
+import BulkVoucherForm from "../components/voucher/BulkVoucherForm";
 import RedeemModal from "../components/voucher/RedeemModal";
 import VoucherPreviewModal from "../components/voucher/VoucherPreviewModal";
 import VoucherVisual from "../components/voucher/VoucherVisual";
@@ -36,6 +37,7 @@ export default function ManageVouchersPage() {
   const [deleting, setDeleting]     = useState(false);
   const [redeemTarget, setRedeem]   = useState(null);
   const [previewTarget, setPreview] = useState(null);
+  const [bulkOpen, setBulkOpen]     = useState(false);
 
   const filtered = useMemo(() => vouchers.filter((v) => {
     const matchSearch =
@@ -77,9 +79,16 @@ export default function ManageVouchersPage() {
           <h1 className="text-2xl font-bold text-[#2D3A3A]">Generate Voucher</h1>
           <p className="text-slate-500 text-sm mt-1">{vouchers.length} voucher total</p>
         </div>
-        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-          <Button onClick={openCreate}><Plus size={16} />Buat Voucher</Button>
-        </motion.div>
+        <div className="flex gap-2">
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+            <Button variant="secondary" onClick={() => setBulkOpen(true)}>
+              <Layers size={15} />Bulk Generate
+            </Button>
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+            <Button onClick={openCreate}><Plus size={16} />Buat Voucher</Button>
+          </motion.div>
+        </div>
       </motion.div>
 
       {/* Toolbar */}
@@ -247,6 +256,11 @@ export default function ManageVouchersPage() {
 
       <RedeemModal open={!!redeemTarget} onClose={() => setRedeem(null)} voucher={redeemTarget} />
       <VoucherPreviewModal open={!!previewTarget} onClose={() => setPreview(null)} voucher={previewTarget} />
+
+      {/* Bulk Generate Modal */}
+      <Modal open={bulkOpen} onClose={() => setBulkOpen(false)} title="Bulk Generate Voucher" size="lg">
+        <BulkVoucherForm onSuccess={() => setBulkOpen(false)} onCancel={() => setBulkOpen(false)} />
+      </Modal>
     </div>
   );
 }

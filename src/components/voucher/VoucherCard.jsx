@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { CheckCircle2, QrCode } from "lucide-react";
+import { CheckCircle2, QrCode, MessageCircle } from "lucide-react";
 import Badge from "../ui/Badge";
 import Button from "../ui/Button";
 import VoucherVisual from "./VoucherVisual";
@@ -14,7 +14,7 @@ function statusInfo(voucher) {
   return                         { label: "Aktif",     variant: "green" };
 }
 
-export default function VoucherCard({ voucher, onRedeem, onPreview, canManage }) {
+export default function VoucherCard({ voucher, onRedeem, onPreview, onShare, canManage }) {
   const status = statusInfo(voucher);
 
   return (
@@ -39,6 +39,7 @@ export default function VoucherCard({ voucher, onRedeem, onPreview, canManage })
         </div>
 
         {canManage ? (
+          /* Admin — Redeem + Preview */
           <div className="flex gap-2">
             {!voucher.isRedeemed && voucher.isActive && (
               <Button variant="primary" size="sm" className="flex-1 bg-[#2D3A3A] hover:bg-[#1E2828]"
@@ -53,12 +54,15 @@ export default function VoucherCard({ voucher, onRedeem, onPreview, canManage })
             </Button>
           </div>
         ) : (
-          !voucher.isRedeemed && voucher.isActive && (
-            <Button variant="primary" size="sm" className="w-full bg-[#2D3A3A] hover:bg-[#1E2828]"
-              onClick={() => onRedeem?.(voucher)}>
-              <CheckCircle2 size={13} /> Gunakan Voucher
-            </Button>
-          )
+          /* Staff — Share WhatsApp */
+          <Button
+            variant="accent"
+            size="sm"
+            className="w-full"
+            onClick={() => onShare?.(voucher)}
+          >
+            <MessageCircle size={13} /> Kirim ke WhatsApp
+          </Button>
         )}
       </div>
     </motion.div>

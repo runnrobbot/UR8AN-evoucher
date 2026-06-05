@@ -6,6 +6,7 @@ import { useVouchers } from "../hooks/useVouchers";
 import VoucherCard from "../components/voucher/VoucherCard";
 import RedeemModal from "../components/voucher/RedeemModal";
 import VoucherPreviewModal from "../components/voucher/VoucherPreviewModal";
+import WhatsAppModal from "../components/voucher/WhatsAppModal";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
 import { staggerContainer, staggerItem, dropDown } from "../lib/animations";
@@ -20,6 +21,7 @@ export default function VouchersPage() {
   const [redeemVoucher, setRedeemVoucher] = useState(null);
   const [scanOpen, setScanOpen] = useState(false);
   const [previewVoucher, setPreviewVoucher] = useState(null);
+  const [shareVoucher, setShareVoucher] = useState(null);
 
   const canManage = role === "admin" || role === "super_admin";
 
@@ -127,6 +129,7 @@ export default function VouchersPage() {
                 canManage={canManage}
                 onRedeem={setRedeemVoucher}
                 onPreview={setPreviewVoucher}
+                onShare={setShareVoucher}
               />
             </motion.div>
           ))}
@@ -136,6 +139,7 @@ export default function VouchersPage() {
       <RedeemModal open={scanOpen} onClose={() => setScanOpen(false)} />
       <RedeemModal open={!!redeemVoucher} onClose={() => setRedeemVoucher(null)} voucher={redeemVoucher} />
       <VoucherPreviewModal open={!!previewVoucher} onClose={() => setPreviewVoucher(null)} voucher={previewVoucher} />
+      <WhatsAppModal open={!!shareVoucher} onClose={() => setShareVoucher(null)} voucher={shareVoucher} />
     </div>
   );
 }

@@ -18,9 +18,10 @@ const empty = {
   discount: "",
   discountType: "fixed",
   minPurchase: "",
+  usageLimit: "",   // "" = tidak terbatas
   expiresAt: "",
   isActive: true,
-  bgImageUrl: "",   // "" = use default banner
+  bgImageUrl: "",
 };
 
 function toInputDate(ts) {
@@ -45,9 +46,10 @@ export default function VoucherForm({ initial, onSuccess, onCancel }) {
       ? {
           ...empty,
           ...initial,
-          discount: String(initial.discount || ""),
-          minPurchase: String(initial.minPurchase || ""),
-          expiresAt: toInputDate(initial.expiresAt),
+          discount:   String(initial.discount   || ""),
+          minPurchase: String(initial.minPurchase !== null && initial.minPurchase !== undefined ? initial.minPurchase : ""),
+          usageLimit: String(initial.usageLimit  !== null && initial.usageLimit  !== undefined ? initial.usageLimit  : ""),
+          expiresAt:  toInputDate(initial.expiresAt),
         }
       : { ...empty, code: generateCode() }
   );
@@ -100,8 +102,8 @@ export default function VoucherForm({ initial, onSuccess, onCancel }) {
         notes:        form.notes.trim(),
         discount:     Number(form.discount),
         discountType: form.discountType,
-        // Bug fix: form.minPurchase bisa "0" (string) yang falsy — pakai !== ""
         minPurchase:  form.minPurchase !== "" ? Number(form.minPurchase) : null,
+        usageLimit:   form.usageLimit  !== "" ? Number(form.usageLimit)  : null,
         // Bug fix: tambah T23:59:59 agar tidak off-by-one di timezone UTC+7
         expiresAt:    form.expiresAt ? new Date(form.expiresAt + "T23:59:59") : null,
         isActive:     form.isActive,
@@ -275,12 +277,21 @@ export default function VoucherForm({ initial, onSuccess, onCancel }) {
             min={0}
           />
           <Input
-            label="Berlaku Hingga (opsional)"
-            type="date"
-            value={form.expiresAt}
-            onChange={(e) => set("expiresAt", e.target.value)}
+            label="Batas Penggunaan (opsional)"
+            type="number"
+            placeholder="Kosong = tidak terbatas"
+            value={form.usageLimit}
+            onChange={(e) => set("usageLimit", e.target.value)}
+            min={1}
           />
         </div>
+
+        <Input
+          label="Berlaku Hingga (opsional)"
+          type="date"
+          value={form.expiresAt}
+          onChange={(e) => set("expiresAt", e.target.value)}
+        />
 
         <Input
           label="Catatan / Syarat & Ketentuan (opsional)"

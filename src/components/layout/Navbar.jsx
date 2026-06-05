@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Ticket, LayoutDashboard, Users, ClipboardList,
-  LogOut, Menu, X, ChevronDown, User,
+  LogOut, Menu, X, ChevronDown, User, Building2,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import Badge from "../ui/Badge";
@@ -28,7 +28,8 @@ export default function Navbar() {
     { to: "/vouchers",        label: "Voucher",      icon: Ticket,          roles: ["user","admin","super_admin"] },
     { to: "/redemptions",     label: "Riwayat",      icon: ClipboardList,   roles: ["user","admin","super_admin"] },
     { to: "/manage-vouchers", label: "Generate",     icon: Ticket,          roles: ["admin","super_admin"] },
-    { to: "/manage-users",    label: "Kelola Staff", icon: Users,           roles: ["super_admin"] },
+    { to: "/manage-users",    label: "Kelola Staff",   icon: Users,      roles: ["super_admin"] },
+    { to: "/manage-divisions", label: "Divisi",        icon: Building2,  roles: ["super_admin"] },
   ].filter((l) => l.roles.includes(role));
 
   const handleLogout = async () => {
