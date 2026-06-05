@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Pencil, Trash2, CheckCircle2, QrCode } from "lucide-react";
+import { CheckCircle2, QrCode } from "lucide-react";
 import Badge from "../ui/Badge";
 import Button from "../ui/Button";
 import VoucherVisual from "./VoucherVisual";
@@ -14,7 +14,7 @@ function statusInfo(voucher) {
   return                         { label: "Aktif",     variant: "green" };
 }
 
-export default function VoucherCard({ voucher, onEdit, onDelete, onRedeem, onPreview, canManage }) {
+export default function VoucherCard({ voucher, onRedeem, onPreview, canManage }) {
   const status = statusInfo(voucher);
 
   return (
@@ -50,12 +50,6 @@ export default function VoucherCard({ voucher, onEdit, onDelete, onRedeem, onPre
               className={voucher.isRedeemed || !voucher.isActive ? "flex-1" : ""}
               onClick={() => onPreview?.(voucher)}>
               <QrCode size={13} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onEdit?.(voucher)}>
-              <Pencil size={13} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onDelete?.(voucher)}>
-              <Trash2 size={13} className="text-red-400" />
             </Button>
           </div>
         ) : (

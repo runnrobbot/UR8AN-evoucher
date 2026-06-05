@@ -93,25 +93,31 @@ export default function VoucherForm({ initial, onSuccess, onCancel }) {
     setSaving(true);
     try {
       const payload = {
-        title: form.title.trim(),
-        code: form.code.trim().toUpperCase(),
+        title:        form.title.trim(),
+        code:         form.code.trim().toUpperCase(),
         customerName: form.customerName.trim(),
         customerPhone: form.customerPhone.trim(),
-        notes: form.notes.trim(),
-        discount: Number(form.discount),
+        notes:        form.notes.trim(),
+        discount:     Number(form.discount),
         discountType: form.discountType,
-        minPurchase: form.minPurchase ? Number(form.minPurchase) : null,
-        expiresAt: form.expiresAt ? new Date(form.expiresAt) : null,
-        isActive: form.isActive,
-        bgImageUrl: form.bgImageUrl || null,   // null = use default in VoucherVisual
-        createdBy: user?.uid,
-        createdByName: profile?.displayName || user?.email,
+        // Bug fix: form.minPurchase bisa "0" (string) yang falsy — pakai !== ""
+        minPurchase:  form.minPurchase !== "" ? Number(form.minPurchase) : null,
+        // Bug fix: tambah T23:59:59 agar tidak off-by-one di timezone UTC+7
+        expiresAt:    form.expiresAt ? new Date(form.expiresAt + "T23:59:59") : null,
+        isActive:     form.isActive,
+        bgImageUrl:   form.bgImageUrl || null,
       };
 
       if (isEdit) {
+        // Bug fix: jangan timpa createdBy/createdByName saat edit
         await updateVoucher(initial.id, payload);
       } else {
-        await createVoucher(payload);
+        // Hanya set createdBy saat membuat voucher baru
+        await createVoucher({
+          ...payload,
+          createdBy:     user?.uid,
+          createdByName: profile?.displayName || user?.email,
+        });
       }
       onSuccess?.();
     } catch (err) {
@@ -124,10 +130,10 @@ export default function VoucherForm({ initial, onSuccess, onCancel }) {
   // Preview — if no custom bg, show default banner for preview
   const previewVoucher = {
     ...form,
-    discount: Number(form.discount) || 0,
+    discount:   Number(form.discount) || 0,
     isRedeemed: false,
-    isActive: form.isActive,
-    expiresAt: form.expiresAt ? new Date(form.expiresAt) : null,
+    isActive:   form.isActive,
+    expiresAt:  form.expiresAt ? new Date(form.expiresAt + "T23:59:59") : null,
     bgImageUrl: form.bgImageUrl || bannerDefault,
   };
 

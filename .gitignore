@@ -27,3 +27,4 @@ dist-ssr
 .env.local
 firestore.rules
 package-lock.json
+nginx.conf

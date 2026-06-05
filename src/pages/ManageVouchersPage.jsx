@@ -223,7 +223,14 @@ export default function ManageVouchersPage() {
 
       {/* Modals */}
       <Modal open={formOpen} onClose={closeForm} title={editTarget ? "Edit Voucher" : "Buat Voucher Baru"} size="xl">
-        <VoucherForm initial={editTarget} onSuccess={closeForm} onCancel={closeForm} />
+        {/* key prop memaksa VoucherForm re-mount saat editTarget berubah,
+            sehingga useState initializer selalu berjalan dengan data terbaru */}
+        <VoucherForm
+          key={editTarget?.id ?? "new"}
+          initial={editTarget}
+          onSuccess={closeForm}
+          onCancel={closeForm}
+        />
       </Modal>
 
       <Modal open={!!deleteTarget} onClose={() => setDelete(null)} title="Hapus Voucher" size="sm">
